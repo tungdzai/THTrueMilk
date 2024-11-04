@@ -22,26 +22,35 @@ async function generateRandomPhone() {
 }
 
 async function generateCardCode() {
-    const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    const numbers = "123456789";
+    const letters = "DHEMUYFTWANRKPUXC";
+    const numbers = "23479";
 
     function getRandomElement(str) {
         return str[Math.floor(Math.random() * str.length)];
     }
 
+    const numCount = Math.floor(Math.random() * 4) + 1;
+    const letterCount = 7 - numCount;
+
     let cardCodeArray = [];
-    for (let i = 0; i < 4; i++) {
+
+    for (let i = 0; i < letterCount; i++) {
         cardCodeArray.push(getRandomElement(letters));
     }
-    for (let i = 0; i < 3; i++) {
+
+    for (let i = 0; i < numCount; i++) {
         cardCodeArray.push(getRandomElement(numbers));
     }
+
     for (let i = cardCodeArray.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [cardCodeArray[i], cardCodeArray[j]] = [cardCodeArray[j], cardCodeArray[i]];
     }
+
     return cardCodeArray.join('');
 }
+
+console.log(generateCardCode())
 
 
 module.exports = {

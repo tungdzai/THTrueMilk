@@ -92,7 +92,7 @@ async function checkProxyAndRun() {
     while (true) {
         const isProxyWorking = await checkProxy();
         if (isProxyWorking) {
-            await runMultipleRequests(30);
+            await runMultipleRequests(25);
         } else {
             console.error("Proxy không hoạt động. Dừng lại.");
         }
