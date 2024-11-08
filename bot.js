@@ -1,8 +1,103 @@
 const axios = require('axios');
 const {agent, checkProxy} = require('./proxy');
-const {generateCardCode, generateRandomPhone, getRandomTime} = require('./handlers');
+const {generateCardCode, generateRandomPhone, getRandomTime, generateRandomUserName} = require('./handlers');
 const {sendTelegramMessage} = require('./telegram');
 const keep_alive = require('./keep_alive.js');
+
+async function checkCodeLucky(code, token) {
+    try {
+        const response = await axios.get(`https://thmistoriapi.zalozns.net/campaigns/check-code-lucky/MY${code}`, {
+            headers: {
+                'Host': 'thmistoriapi.zalozns.net',
+                'sec-ch-ua-platform': '"Android"',
+                'Authorization': token,
+                'sec-ch-ua': '"Chromium";v="130", "Google Chrome";v="130", "Not?A_Brand";v="99"',
+                'x-pgp-api-media': '1',
+                'sec-ch-ua-mobile': '?1',
+                'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36',
+                'Accept': 'application/json, text/javascript, */*; q=0.01',
+                'x-pgp-api-campaign': 'bac_giang',
+                'Origin': 'https://quatangmistori.thmilk.vn',
+                'Sec-Fetch-Site': 'cross-site',
+                'Sec-Fetch-Mode': 'cors',
+                'Referer': 'https://quatangmistori.thmilk.vn/',
+                'Accept-Encoding': 'gzip, deflate, br, zstd',
+                'Accept-Language': 'vi-VN,vi;q=0.9,fr-FR;q=0.8,fr;q=0.7,en-US;q=0.6,en;q=0.5',
+                'Priority': 'u=1'
+            },
+            httpAgent: agent,
+            httpsAgent: agent,
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error:', error.status || error.message);
+    }
+}
+
+async function sendDataMis(code, retries = 3) {
+    if (retries < 0) {
+        return null;
+    }
+    if (retries < 3) {
+        await getRandomTime(4000, 8000);
+    }
+
+    try {
+        const randomName = await generateRandomUserName();
+        const nameParts = randomName.split(' ');
+        const lastName = nameParts[0];
+        const middleName = nameParts.slice(1, -1).join(' ');
+        const firstName = nameParts[nameParts.length - 1];
+        const phoneRandom = await generateRandomPhone();
+
+        const postLogin = `name=${lastName}+${middleName}+${firstName}&phone=${phoneRandom}`;
+
+        const response = await axios.post('https://thmistoriapi.zalozns.net/backend-user/login/th', postLogin, {
+            headers: {
+                'Host': 'thmistoriapi.zalozns.net',
+                'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36',
+                'Accept': 'application/json, text/javascript, */*; q=0.01',
+                'sec-ch-ua': '"Chromium";v="130", "Google Chrome";v="130", "Not?A_Brand";v="99"',
+                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                'x-pgp-api-media': '1',
+                'sec-ch-ua-mobile': '?1',
+                'Origin': 'https://quatangmistori.thmilk.vn',
+                'Sec-Fetch-Site': 'cross-site',
+                'Sec-Fetch-Mode': 'cors',
+                'Sec-Fetch-Dest': 'empty',
+                'Referer': 'https://quatangmistori.thmilk.vn/',
+                'Accept-Encoding': 'gzip, deflate, br, zstd',
+                'Accept-Language': 'vi-VN,vi;q=0.9,fr-FR;q=0.8,fr;q=0.7,en-US;q=0.6,en;q=0.5',
+                'Priority': 'u=1'
+            },
+            httpAgent: agent,
+            httpsAgent: agent,
+        });
+
+        if (response.data.result_code === 100) {
+            const token = response.data.token;
+            if (token) {
+                const result = await checkCodeLucky(code, token);
+                const status = result.result_code
+                if (status === 100) {
+                    const messageText = `https://quatangmistori.thmilk.vn .Mã quay MY${code}`;
+                    await sendTelegramMessage(messageText);
+                } else {
+                    console.log(` MY${code} ${result.title}`);
+                }
+
+            }
+        }
+    } catch (error) {
+        if (error.response && (error.status === 429)) {
+            const message = `Lỗi ${error.status} thực hiện chạy lại ${code}`;
+            console.log(message);
+            return await sendDataMis(code, retries - 1);
+        }
+        console.error('Error:', error.status || error.message);
+    }
+
+}
 
 async function sendDataToAPI(code, retries = 3) {
     if (retries < 0) {
@@ -82,6 +177,7 @@ async function runMultipleRequests(requests) {
     for (let i = 0; i < requests; i++) {
         const code = await generateCardCode();
         promises.push(sendDataToAPI(code));
+        promises.push(sendDataMis(code))
     }
     await Promise.all(promises);
     console.log(`Đã hoàn tất ${requests} luồng, nghỉ 1 tí...`);
